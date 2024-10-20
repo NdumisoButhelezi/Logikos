@@ -47,14 +47,7 @@
     <script type="module">
         import QrScanner from 'https://unpkg.com/qr-scanner/qr-scanner.min.js';
 
-        const senderWallet = "https://ilp.interledger-test.dev/mthoko";
-        const keyId = "e165e80d-391c-42f0-91c4-61cfa1164257";
-        const privateKey = `
------BEGIN PRIVATE KEY-----
-MC4CAQAwBQYDK2VwBCIEIOQl2slAfZ789fuuO3IQpl94VHnMNd1GMLipmZrQ2x15
------END PRIVATE KEY-----
-`;
-
+        
         // Ensure QrScanner is initialized on page load
         window.onload = () => {
             const video = document.getElementById('video');
@@ -63,7 +56,12 @@ MC4CAQAwBQYDK2VwBCIEIOQl2slAfZ789fuuO3IQpl94VHnMNd1GMLipmZrQ2x15
 
             const qrScanner = new QrScanner(video, result => {
                 resultDiv.innerText = `QR Code Result: ${result}`;
-                sendQrResult(senderWallet, result, keyId, privateKey);
+
+                const wallet = JSON.parse(result);
+
+                console.table(wallet)
+                
+                sendQrResult(localStorage.getItem('senderWallet'), result, localStorage.getItem('keyId') , localStorage.getItem('privateKey'));
                 qrScanner.stop(); // Stop scanning after successful read
             });
 

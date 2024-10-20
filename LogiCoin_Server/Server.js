@@ -4,6 +4,7 @@ import { createAuthenticatedClient, OpenPaymentsClientError, isFinalizedGrant } 
 import readline from "readline/promises";
 import { readFileSync } from "fs";
 import cors from 'cors';
+import os from 'os'
 
 const app = express();
 const PORT = 3000;
@@ -12,6 +13,70 @@ app.use(cors());
 app.use(bodyParser.json());
 
 const receiverWalletAddressUrl = "https://ilp.interledger-test.dev/zulu";
+
+app.post('/get_wallet_info_logged', (req, res) => {
+
+  const senderWalletAddressUrl = req.body.senderWallet;
+  const keyId = req.body.keyId;
+  const privateKey = req.body.privateKey;
+
+  (async () => {
+
+    const client = await createAuthenticatedClient({
+      walletAddressUrl: senderWalletAddressUrl,
+      keyId: keyId,
+      privateKey: privateKey,
+    });
+
+    const sendingWalletAddress = await client.walletAddress.get({
+      url: senderWalletAddressUrl,
+    });
+    
+    console.log(
+      "Got wallet addresses. We will set up a payment between the sending and the receiving wallet address",
+      { sendingWalletAddress }
+    );
+
+    res.json({ sendingWalletAddress });
+
+  })();
+
+});
+
+//Step 1
+app.post('/get_wallet_info', (req, res) => {
+
+  const senderWalletAddressUrl = req.body.senderWallet;
+  const keyId = req.body.keyId;
+  const privateKey = req.body.privateKey;
+
+  (async () => {
+
+    const client = await createAuthenticatedClient({
+      walletAddressUrl: senderWalletAddressUrl,
+      keyId: keyId,
+      privateKey: privateKey,
+    });
+
+    const sendingWalletAddress = await client.walletAddress.get({
+      url: senderWalletAddressUrl,
+    });
+    const receivingWalletAddress = await client.walletAddress.get({
+      url: receiverWalletAddressUrl,
+    });
+
+
+    console.log(
+      "Got wallet addresses. We will set up a payment between the sending and the receiving wallet address",
+      { receivingWalletAddress, sendingWalletAddress }
+    );
+
+    res.json({ receivingWalletAddress, sendingWalletAddress });
+
+  })();
+
+});
+
 
 app.post('/scan-to-pay', (req, res) => {
 
@@ -274,37 +339,8 @@ app.post('/get-qoute', (req, res) => {
 
     console.log("\nStep 4: got quote on sending wallet address", quote);
 
-    const outgoingPaymentGrant = await client.grant.request(
-      {
-        url: sendingWalletAddress.authServer,
-      },
-      {
-        access_token: {
-          access: [
-            {
-              type: "outgoing-payment",
-              actions: ["create"],
-              limits: {
-                debitAmount: quote.debitAmount,
-              },
-              identifier: sendingWalletAddress.id,
-            },
-          ],
-        },
-        interact: {
-          start: ["redirect"],
-        },
-      }
-    );
-  
-    console.log(
-      "\nStep 5: got pending outgoing payment grant",
-      outgoingPaymentGrant
-    );
-    console.log(
-      "Please navigate to the following URL, to accept the interaction from the sending wallet:"
-    );
-    console.log(outgoingPaymentGrant.interact.redirect);
+    res.json(quote);
+
 
   })();
 
@@ -371,7 +407,19 @@ async function finalizePayment(client , sendingWalletAddress , quote , outgoingP
 
 }
 
+const getLocalIp = () => {
+  const interfaces = os.networkInterfaces();
+  for (const iface in interfaces) {
+    for (const address of interfaces[iface]) {
+      if (address.family === 'IPv4' && !address.internal) {
+        return address.address;
+      }
+    }
+  }
+  return 'localhost'; // Fallback to localhost if no external IP found
+};
 
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  const ipAddress = getLocalIp();
+  console.log(`Server is running on http://${ipAddress}:${PORT}`);
 });
