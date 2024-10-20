@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Scanner</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #video {
+            width: 100%;
+            max-width: 300px;
+            height: auto;
+            border: 1px solid #343a40;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Scan To Pay</h1>
+        <div class="form-group">
+            <label for="amount">Amount:</label>
+            <input type="number" class="form-control" id="amount" name="amount" required>
+        </div>
+        
+        <div id="result" class="text-center mt-3"></div>
+        
+        <div class="text-center mt-4">
+            <video id="video"></video>
+        </div>
+    </div>
+
+    <!-- Load jsQR from a reliable source -->
+    <script type="module">
+        import QrScanner from 'https://unpkg.com/qr-scanner/qr-scanner.min.js';
+        
+        const senderWallet = "https://ilp.interledger-test.dev/mthoko";
+        const keyId = "e165e80d-391c-42f0-91c4-61cfa1164257";
+        const privateKey = `
+-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIOQl2slAfZ789fuuO3IQpl94VHnMNd1GMLipmZrQ2x15
+-----END PRIVATE KEY-----
+`;
+
+        // Ensure QrScanner is initialized on page load
+        window.onload = () => {
+            const video = document.getElementById('video');
+            const resultDiv = document.getElementById('result');
+            const payButton = document.getElementById('payButton');
+
+            const qrScanner = new QrScanner(video, result => {
+                resultDiv.innerText = `QR Code Result: ${result}`;
+                const amount = (document.getElementById('amount').value).toString();
+                sendQrResult(senderWallet, result, keyId, amount, privateKey);
+                qrScanner.stop(); // Stop scanning after successful read
+            });
+
+            // Start scanning
+            QrScanner.hasCamera().then(hasCamera => {
+                if (hasCamera) {
+                    qrScanner.start();
+                } else {
+                    resultDiv.innerText = 'No camera found';
+                }
+            });
+
+            payButton.addEventListener('click', () => {
+                resultDiv.innerText = 'Scanning for QR code...';
+                qrScanner.start();
+            });
+        };
+
+        function sendQrResult(senderWallet, receiverWallet, keyId, amount, privateKey) {
+            fetch('http://192.168.152.145:3000/scan-to-pay', { // Replace with your server's URL
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json', // Specify the content type
+                },
+                body: JSON.stringify({
+                    senderWallet,
+                    receiverWallet,
+                    keyId,
+                    amount,
+                    privateKey
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.message) {
+                    window.location.href = data.message;
+                } else {
+                    console.log('Message not found in response:', data);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error); // Handle any errors
+            });
+        }
+    </script>
+</body>
+
+</html>

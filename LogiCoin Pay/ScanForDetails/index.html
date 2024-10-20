@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Scanner</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #video {
+            width: 100%;
+            max-width: 300px;
+            height: auto;
+            border: 1px solid #343a40;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Scan</h1>
+
+        <div id="result" class="text-center mt-3"></div>
+
+        <div class="text-center mt-4">
+            <video id="video"></video>
+        </div>
+
+        <div class="container">
+            <h2>Wallet Transaction Details</h2>
+
+            <div class="wallet-info">
+                <p id="transaction-description"></p>
+                <h3>Receiving Wallet Information</h3>
+                <p><strong>ID:</strong> <span id="receiver-id"></span></p>
+                <p><strong>Public Name:</strong> <span id="receiver-name"></span></p>
+                <p><strong>Asset Code:</strong> <span id="receiver-asset-code"></span></p>
+                <p><strong>Asset Scale:</strong> <span id="receiver-asset-scale"></span></p>
+                <p><strong>Auth Server:</strong> <span id="receiver-auth-server"></span></p>
+                <p><strong>Resource Server:</strong> <span id="receiver-resource-server"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load jsQR from a reliable source -->
+    <script type="module">
+        import QrScanner from 'https://unpkg.com/qr-scanner/qr-scanner.min.js';
+
+        const senderWallet = "https://ilp.interledger-test.dev/mthoko";
+        const keyId = "e165e80d-391c-42f0-91c4-61cfa1164257";
+        const privateKey = `
+-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIOQl2slAfZ789fuuO3IQpl94VHnMNd1GMLipmZrQ2x15
+-----END PRIVATE KEY-----
+`;
+
+        // Ensure QrScanner is initialized on page load
+        window.onload = () => {
+            const video = document.getElementById('video');
+            const resultDiv = document.getElementById('result');
+            const payButton = document.getElementById('payButton');
+
+            const qrScanner = new QrScanner(video, result => {
+                resultDiv.innerText = `QR Code Result: ${result}`;
+                sendQrResult(senderWallet, result, keyId, privateKey);
+                qrScanner.stop(); // Stop scanning after successful read
+            });
+
+            // Start scanning
+            QrScanner.hasCamera().then(hasCamera => {
+                if (hasCamera) {
+                    qrScanner.start();
+                } else {
+                    resultDiv.innerText = 'No camera found';
+                }
+            });
+
+            payButton.addEventListener('click', () => {
+                resultDiv.innerText = 'Scanning for QR code...';
+                qrScanner.start();
+            });
+        };
+
+        function sendQrResult(senderWallet, receiverWallet, keyId, privateKey) {
+            fetch('http://192.168.152.145:3000/get_wallet_info', { // Replace with your server's URL
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json', // Specify the content type
+                },
+                body: JSON.stringify({
+                    senderWallet,
+                    receiverWallet,
+                    keyId,
+                    privateKey
+                })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data) {
+                        console.log(data)
+                        document.getElementById("receiver-id").innerText = data.receivingWallet.id;
+                        document.getElementById("receiver-name").innerText = data.receivingWallet.publicName;
+                        document.getElementById("receiver-asset-code").innerText = data.receivingWallet.assetCode;
+                        document.getElementById("receiver-asset-scale").innerText = data.receivingWallet.assetScale;
+                        document.getElementById("receiver-auth-server").innerText = data.receivingWallet.authServer;
+                        document.getElementById("receiver-resource-server").innerText = data.receivingWallet.resourceServer;
+
+                        // Generating the transaction description
+                        const description = `You are transferring from ${sendingCurrency} to ${receivingName} using ${receivingCurrency}.`;
+
+                        // Displaying the description in the HTML
+                        document.getElementById("transaction-description").innerText = description;
+                        
+                    } else {
+                        console.log('Data not found in response:', data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error); // Handle any errors
+                });
+        }
+    
+    </script>
+</body>
+
+</html>

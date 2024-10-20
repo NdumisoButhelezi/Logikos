@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two Button Navigation</title>
+    <style>
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>LogiCoin Pay</h1>
+    <hr>
+    <p id="walletName"></p>
+    <hr>
+    <button onclick="window.location.href='ScanToPay/'">Scan To Pay</button>
+    <button onclick="window.location.href='ScanForQuotes/'">Scan For A Qoute</button>
+    <button onclick="window.location.href='ScanForDetails/'">Scan For Details</button>
+</body>
+<script>
+    const senderWallet = "https://ilp.interledger-test.dev/mthoko";
+    const keyId = "e165e80d-391c-42f0-91c4-61cfa1164257";
+    const privateKey = `
+-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIOQl2slAfZ789fuuO3IQpl94VHnMNd1GMLipmZrQ2x15
+-----END PRIVATE KEY-----
+`;
+
+    sendQrResult(senderWallet, keyId, privateKey);
+
+    function sendQrResult(senderWallet, keyId, privateKey) {
+        fetch('http://192.168.152.145:3000/get_wallet_info_logged', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                senderWallet,
+                keyId,
+                privateKey
+            })
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data) {
+                    console.log(data)
+
+                    document.getElementById("walletName").innerText = `Wallet Name : ${data.sendingWalletAddress.publicName} Wallet Currency: ${data.sendingWalletAddress.assetCode}`;
+
+
+                } else {
+                    console.log('Data not found in response:', data);
+                }
+
+            })
+            .catch(error => {
+                console.error('Error:', error); // Handle any errors
+            });
+    }
+
+</script>
+
+</html>
