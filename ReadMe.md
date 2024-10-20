@@ -2,11 +2,11 @@
 
 ## Overview
 
-**LogiCoin Pay** is a .... payment app that enables users to buy products on an e-commerce site using Open Payments Api. The system is divided into three parts:
+**LogiCoin Pay** is a payment app that enables users to buy products on an e-commerce site using the Open Payments API. The system is divided into three parts:
 
 1. **E-commerce Site**: Users can browse products and initiate purchases.
 2. **LogiCoin Pay App**: Handles transactions for purchases made on the e-commerce platform.
-3. **LogiCoin Server**: For handling transactions and tracking transactions.
+3. **LogiCoin Server**: Manages transactions and tracks their status.
 
 This guide provides instructions on how to run the LogiCoin Pay App.
 
@@ -14,10 +14,10 @@ This guide provides instructions on how to run the LogiCoin Pay App.
 
 ## Prerequisites
 
-To run the LogiCoin Pay App and the associated e-commerce site, you will need the following installed on your machine:
+To run the LogiCoin Pay App and the associated e-commerce site, ensure you have the following installed on your machine:
 
 1. **Node.js** (for the front-end and server)
-2. **Interleger Payments Wallet** (for transactions)
+2. **Interleger Payments Wallet** (for handling transactions)
 
 ---
 
@@ -27,7 +27,7 @@ To run the LogiCoin Pay App and the associated e-commerce site, you will need th
 
 Start by cloning the project repository from GitHub:
 
-```bash
+```
 git clone https://github.com/NdumisoButhelezi/Logikos.git
 ```
 
@@ -35,20 +35,31 @@ git clone https://github.com/NdumisoButhelezi/Logikos.git
 
 The next step is to run the LogiCoin Server.
 
-```bash
+```
 cd LogiCoin_Server
 npm install
 node Server.js
 ```
 
-Output
+Once the server is running, you should see the following output:
 
-```bash
+```
 Server is running on http://192.168.152.145:3000.
-````
+```
 
-Keep the ip adress safe on your Clipboard history becouse it will be cruial for the next part.
+Make sure to keep this IP address safe in your clipboard history, as it will be crucial for the next steps.
 
-### 3. Setup the Logicoin Pay App
+### 3. Set Up the LogiCoin Pay App
 
-The next step is to set up the LogiCoin Pay app .
+Now, proceed to set up the LogiCoin Pay App, which will be responsible for managing transactions initiated on the e-commerce platform.
+
+---
+
+## Dev - Still in Progress
+
+### **TigerBeetle Integration and OpenAI**
+
+- **TigerBeetle** is a fast and reliable system designed for processing financial transactions with high accuracy. It manages ledgers and ensures that transaction data is correctly recorded and processed in real time.
+
+- In our system, TigerBeetle will handle all transactions, ensuring they are processed efficiently. Additionally, the plan is to take snapshots of the data processed by TigerBeetle and integrate it with **OpenAI** for AI-driven transactional analytics. This integration will allow us to analyze transaction patterns, predict trends, and detect potential fraud, providing valuable insights and optimizing our payment system.
+
