@@ -1,155 +1,226 @@
-require('dotenv').config(); // Add this at the top of the file
+import express from 'express';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createAuthenticatedClient, isFinalizedGrant } from "@interledger/open-payments";
+import fs from 'fs';
+import { createAuthenticatedClient } from "@interledger/open-payments";
 
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const { auth } = require('express-openid-connect');
-const { createClient } = require('tigerbeetle-node');
-const WalletManager = require('./WalletManager');
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(bodyParser.json());
 app.use(cors());
+app.use(express.static(path.join(__dirname)));
 
-// Auth0 configuration
-const authConfig = {
-  authRequired: false,
-  auth0Logout: true,
-  secret: process.env.AUTH0_SECRET,
-  baseURL: 'http://localhost:3000',
-  clientID: 'S0zg526dk4eW2jRepG9PGsU2pzhsE4mP',
-  issuerBaseURL: 'https://dev-erqur7jerx4wtawx.us.auth0.com'
-};
+// Interledger credentials
+const PRIVATE_KEY_PATH = 'Zuluprivate.key';
+const privateKey = fs.readFileSync(PRIVATE_KEY_PATH, 'utf8');
+const KEY_ID = '2bb2127f-535e-4d08-89ec-09f9955a6d78';
+const WALLET_ADDRESS = 'https://ilp.interledger-test.dev/zulu'; // Sender's wallet address
 
-// Only use Auth0 if the secret is set
-if (process.env.AUTH0_SECRET) {
-  app.use(auth(authConfig));
-} else {
-  console.warn('AUTH0_SECRET not set. Skipping Auth0 middleware.');
-}
-
-// TigerBeetle setup
-const client = createClient({
-  cluster_id: 0n,
-  replica_addresses: ['127.0.0.1:3000']
-});
-
-const walletManager = new WalletManager(client);
-
-// Serve static files from the 'public' directory
-app.use(express.static('public'));
-
-// Serve storeManager.html
-app.get('/storeManager', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'storeManager.html'));
-});
-
-// Load store manager details
-let storeManagerDetails = {};
-try {
-  storeManagerDetails = JSON.parse(fs.readFileSync('storeManagerDetails.json', 'utf8'));
-} catch (error) {
-  console.error('Error loading store manager details:', error);
-}
-
-// API endpoint for Web Monetization
-app.post('/api/web-monetization', async (req, res) => {
+async function setupClient() {
   try {
-    const { product, priceInRand, country, senderPointer } = req.body;
-    const userId = req.oidc?.user?.sub || 'anonymous'; // Get user ID from Auth0 if available
-
-    // Convert RAND to local currency
-    const localCurrency = await convertCurrency(priceInRand, 'ZAR', country);
-
-    // Create or get user wallet
-    const userWallet = await walletManager.getOrCreateWallet(userId);
-
-    // Generate a payment pointer for the receiver (bike shop)
-    const receiverPointer = storeManagerDetails.paymentPointer;
-
-    // Create a pending transaction in TigerBeetle
-    const transactionId = await walletManager.createPendingTransaction(userWallet.id, BigInt(priceInRand * 100)); // Convert to cents
-
-    // Initiate Interledger payment
-    const paymentResult = await initiateInterledgerPayment(senderPointer, receiverPointer, priceInRand);
-
-    res.json({ 
-      success: true, 
-      message: 'Transaction initiated', 
-      priceInRand, 
-      localCurrency,
-      paymentResult
+    const client = await createAuthenticatedClient({
+      walletAddressUrl: WALLET_ADDRESS,
+      privateKey: privateKey,
+      keyId: KEY_ID,
     });
 
-    // Monitor the transaction (this should be implemented properly in a production environment)
-    setTimeout(async () => {
-      await walletManager.finalizeTransaction(transactionId);
-    }, 30000); // Simulate a 30-second payment window
-
+    console.log('Open Payments client created');
+    return client;
   } catch (error) {
-    console.error('Error processing Web Monetization transaction:', error);
-    res.status(500).json({ error: 'An error occurred while processing the payment' });
-  }
-});
-
-// Store manager settings endpoint
-app.post('/api/store-manager-settings', (req, res) => {
-  const { paymentPointer } = req.body;
-  storeManagerDetails = { 
-    paymentPointer, 
-    interledgerSecret: 'C:\\Users\\IT STAFF\\BikeShop\\cert.pem' 
-  };
-  fs.writeFileSync('storeManagerDetails.json', JSON.stringify(storeManagerDetails));
-  res.json({ success: true, message: 'Store manager details updated' });
-});
-
-// Currency conversion endpoint
-app.get('/api/convert-currency', async (req, res) => {
-  try {
-    const { amount, from, to } = req.query;
-    const convertedAmount = await convertCurrency(amount, from, to);
-    res.json({ convertedAmount });
-  } catch (error) {
-    console.error('Error converting currency:', error);
-    res.status(500).json({ error: 'An error occurred while converting currency' });
-  }
-});
-
-async function convertCurrency(amount, from, to) {
-  const apiKey = process.env.EXCHANGE_RATE_API_KEY; // You'll need to get an API key from an exchange rate service
-  const url = `https://api.exchangerate-api.com/v4/latest/${from}`;
-
-  try {
-    const response = await axios.get(url);
-    const rate = response.data.rates[to];
-    return (amount * rate).toFixed(2);
-  } catch (error) {
-    console.error('Error fetching exchange rate:', error);
-    throw new Error('Failed to convert currency');
+    console.error('Error creating Open Payments client:', error);
   }
 }
 
-async function initiateInterledgerPayment(senderPointer, receiverPointer, amount) {
-  // This is a placeholder function. In a real application, you would integrate with
-  // the Interledger protocol to initiate the payment using the secret file.
-  const interledgerSecret = storeManagerDetails.interledgerSecret;
-  console.log(`Using Interledger secret file: ${interledgerSecret}`);
-  
-  // Here you would use the secret file to authenticate and initiate the payment
-  // For now, we'll return a dummy result
-  return {
-    success: true,
-    transactionId: 'il-' + Math.random().toString(36).substr(2, 9),
-    message: `Payment of ${amount} from ${senderPointer} to ${receiverPointer} initiated using secret file`
-  };
-}
+setupClient();
 
+// Store manager's payment pointer
+let storePaymentPointer = '$ilp.interledger-test.dev/mandem'; // Correct receiver pointer
+
+// Serve static HTML files
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/manager', (req, res) => {
+  res.sendFile(path.join(__dirname, 'manager.html'));
+});
+
+// QR Code generation endpoint
+app.post('/generate-qr', async (req, res) => {
+  try {
+    const { product, price } = req.body;
+    if (!product || !price) {
+      return res.status(400).send('Product and Price are required');
+    }
+
+    const qrData = JSON.stringify({
+      product: product,
+      price: price,
+      pointer: storePaymentPointer // Use the store's payment pointer
+    });
+
+    const qrCodeBuffer = await QRCode.toBuffer(qrData, {
+      errorCorrectionLevel: 'M',
+      type: 'image/png',
+      margin: 1
+    });
+
+    res.setHeader('Content-Disposition', 'attachment; filename=qrcode.png');
+    res.type('image/png').send(qrCodeBuffer);
+  } catch (err) {
+    console.error('Error generating QR code:', err);
+    res.status(500).send({ error: 'Internal Server Error' });
+  }
+});
+
+// Open Payments purchase endpoint
+app.post('/api/open-payments-purchase', async (req, res) => {
+  try {
+    const { productName, price, paymentPointer, userCurrency } = req.body;
+    console.log(`Received Open Payments purchase request for ${productName} at ${price} ${userCurrency} from ${paymentPointer}`);
+
+    const receivingWalletAddress = await client.walletAddress.get({
+      url: storePaymentPointer.replace('$', 'https://ilp.interledger-test.dev/rio'),
+    });
+
+    const sendingWalletAddress = await client.walletAddress.get({
+      url: paymentPointer.replace('$', 'https://ilp.interledger-test.dev/zulu'),
+    });
+
+    // Step 1: Get a grant for the incoming payment
+    const incomingPaymentGrant = await client.grant.request(
+      { url: receivingWalletAddress.authServer },
+      {
+        access_token: {
+          access: [{ type: "incoming-payment", actions: ["read", "complete", "create"] }],
+        },
+      }
+    );
+
+    // Step 2: Create the incoming payment
+    const incomingPayment = await client.incomingPayment.create(
+      {
+        url: receivingWalletAddress.resourceServer,
+        accessToken: incomingPaymentGrant.access_token.value,
+      },
+      {
+        walletAddress: receivingWalletAddress.id,
+        incomingAmount: {
+          assetCode: userCurrency,
+          assetScale: 2,
+          value: price.toString(),
+        },
+      }
+    );
+
+    // Step 3: Get a quote grant
+    const quoteGrant = await client.grant.request(
+      { url: sendingWalletAddress.authServer },
+      {
+        access_token: {
+          access: [{ type: "quote", actions: ["create", "read"] }],
+        },
+      }
+    );
+
+    // Step 4: Create a quote
+    const quote = await client.quote.create(
+      {
+        url: sendingWalletAddress.resourceServer,
+        accessToken: quoteGrant.access_token.value,
+      },
+      {
+        walletAddress: sendingWalletAddress.id,
+        receiver: incomingPayment.id,
+        method: "ilp",
+      }
+    );
+
+    // Step 5: Start the grant process for the outgoing payment
+    const outgoingPaymentGrant = await client.grant.request(
+      { url: sendingWalletAddress.authServer },
+      {
+        access_token: {
+          access: [
+            {
+              type: "outgoing-payment",
+              actions: ["read", "create"],
+              limits: {
+                debitAmount: {
+                  assetCode: quote.debitAmount.assetCode,
+                  assetScale: quote.debitAmount.assetScale,
+                  value: quote.debitAmount.value,
+                },
+              },
+              identifier: sendingWalletAddress.id,
+            },
+          ],
+        },
+        interact: { start: ["redirect"] },
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'Grant process initiated',
+      grantUrl: outgoingPaymentGrant.interact.redirect,
+      continueUri: outgoingPaymentGrant.continue.uri,
+      continueToken: outgoingPaymentGrant.continue.access_token.value,
+      quoteId: quote.id,
+    });
+
+  } catch (error) {
+    console.error('Error processing Open Payments purchase:', error);
+    res.status(500).json({ success: false, message: 'Error processing purchase' });
+  }
+});
+
+// Endpoint to finalize the payment after user interaction
+app.post('/api/finalize-payment', async (req, res) => {
+  try {
+    const { continueUri, continueToken, quoteId, sendingWalletAddress } = req.body;
+
+    const finalizedGrant = await client.grant.continue({
+      url: continueUri,
+      accessToken: continueToken,
+    });
+
+    if (!isFinalizedGrant(finalizedGrant)) {
+      throw new Error('Grant not finalized');
+    }
+
+    const outgoingPayment = await client.outgoingPayment.create(
+      {
+        url: sendingWalletAddress,
+        accessToken: finalizedGrant.access_token.value,
+      },
+      {
+        walletAddress: sendingWalletAddress,
+        quoteId: quoteId,
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'Payment finalized',
+      paymentDetails: outgoingPayment,
+    });
+
+  } catch (error) {
+    console.error('Error finalizing payment:', error);
+    res.status(500).json({ success: false, message: 'Error finalizing payment' });
+  }
+});
+
+// Start the server
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

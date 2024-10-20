@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bike Shop - Store Manager</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        label, input, button {
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Store Manager Settings</h1>
+    <form id="paymentPointerForm">
+        <label for="paymentPointer">Interledger Payment Pointer:</label>
+        <input type="text" id="paymentPointer" name="paymentPointer" required>
+        <button type="submit">Update Payment Pointer</button>
+    </form>
+
+    <script>
+        document.getElementById('paymentPointerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const paymentPointer = document.getElementById('paymentPointer').value;
+            try {
+                const response = await axios.post('/api/update-payment-pointer', { paymentPointer });
+                if (response.data.success) {
+                    alert('Payment pointer updated successfully');
+                } else {
+                    throw new Error(response.data.message);
+                }
+            } catch (error) {
+                console.error('Error updating payment pointer:', error);
+                alert('Error updating payment pointer. Please try again.');
+            }
+        });
+    </script>
+</body>
+</html>

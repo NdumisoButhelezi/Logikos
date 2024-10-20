@@ -39,11 +39,12 @@ MC4CAQAwBQYDK2VwBCIEIOQl2slAfZ789fuuO3IQpl94VHnMNd1GMLipmZrQ2x15
     localStorage.setItem('senderWallet', senderWallet);
     localStorage.setItem('keyId', keyId);
     localStorage.setItem('privateKey', privateKey);
+    localStorage.setItem('endpoint', endpoint);
 
     sendQrResult(localStorage.getItem('senderWallet'), localStorage.getItem('keyId'), localStorage.getItem('privateKey'));
 
     function sendQrResult(senderWallet, keyId, privateKey) {
-        fetch(`${endpoint}/get_wallet_info_logged`, {
+        fetch(`${localStorage.getItem('endpoint')}/get_wallet_info_logged`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

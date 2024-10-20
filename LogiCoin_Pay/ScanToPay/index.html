@@ -44,9 +44,9 @@
 
             const qrScanner = new QrScanner(video, result => {
                 console.log(result)
+                const Wallet = JSON.parse(result);
                 resultDiv.innerText = `QR Code Result: ${result}`;
-                const amount = (document.getElementById('amount').value).toString();
-                sendQrResult(localStorage.getItem('senderWallet'), result, localStorage.getItem('keyId'), amount, localStorage.getItem('privateKey') );
+                sendQrResult(localStorage.getItem('senderWallet'), Wallet.pointer , localStorage.getItem('keyId'), Wallet.price, localStorage.getItem('privateKey') );
                 qrScanner.stop(); // Stop scanning after successful read
             });
 
@@ -66,7 +66,7 @@
         };
 
         function sendQrResult(senderWallet, receiverWallet, keyId, amount, privateKey) {
-            fetch(`${localStorage.getItem('senderWallet')}/scan-to-pay`, { // Replace with your server's URL
+            fetch(`${localStorage.getItem('endpoint')}/scan-to-pay`, { // Replace with your server's URL
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json', // Specify the content type
