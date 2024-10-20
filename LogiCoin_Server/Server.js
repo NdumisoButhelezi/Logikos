@@ -5,6 +5,8 @@ import readline from "readline/promises";
 import { readFileSync } from "fs";
 import cors from 'cors';
 import os from 'os'
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const PORT = 3000;
@@ -14,8 +16,18 @@ app.use(bodyParser.json());
 
 const receiverWalletAddressUrl = "https://ilp.interledger-test.dev/zulu";
 
-app.post('/get_wallet_info_logged', (req, res) => {
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve the index.html file on the root route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.post('/get_wallet_info_logged', (req, res) => {
+console.log("Got A response")
   const senderWalletAddressUrl = req.body.senderWallet;
   const keyId = req.body.keyId;
   const privateKey = req.body.privateKey;
