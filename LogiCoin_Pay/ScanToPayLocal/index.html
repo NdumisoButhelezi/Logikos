@@ -1,102 +1,141 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <title>LogiCoin Pay</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <style>
-        #video {
-            width: 100%;
-            max-width: 300px;
-            height: auto;
-            border: 1px solid #343a40;
+        :root {
+            --primary-color: #4a90e2;
+            --background-color: #f4f4f4;
+            --text-color: #333;
+            --card-background: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background-color: var(--card-background);
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .wallet-info {
+            background-color: #e8f0fe;
+            border-left: 5px solid var(--primary-color);
+            padding: 1rem;
+            margin-bottom: 2rem;
             border-radius: 5px;
+        }
+        .button-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        .action-button {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            border-radius: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+        .action-button:hover {
+            background-color: #3a7bc8;
+            transform: translateY(-2px);
+        }
+        .action-button i {
+            font-size: 1.5rem;
+            margin-right: 1rem;
         }
     </style>
 </head>
-
 <body>
-    <div class="container mt-5">
-        <h1 class="text-center">Scan To Pay</h1>
-        <div class="form-group">
-            <label for="amount">Amount:</label>
-            <input type="number" class="form-control" id="amount" name="amount" required>
+    <div class="container">
+        <h1>LogiCoin Pay</h1>
+        <div class="wallet-info" id="walletInfo">
+            <p id="walletName">Loading wallet information...</p>
         </div>
-        
-        <div id="result" class="text-center mt-3"></div>
-        
-        <div class="text-center mt-4">
-            <video id="video"></video>
+        <div class="button-container">
+            <button class="action-button" onclick="window.location.href='ScanToPay/'">
+                <i class="fas fa-qrcode"></i>
+                Scan To Pay
+            </button>
+            <button class="action-button" onclick="window.location.href='ScanForQuotes/'">
+                <i class="fas fa-tags"></i>
+                Scan For A Quote
+            </button>
+            <button class="action-button" onclick="window.location.href='ScanForDetails/'">
+                <i class="fas fa-info-circle"></i>
+                Scan For Details
+            </button>
         </div>
     </div>
 
-    <!-- Load jsQR from a reliable source -->
-    <script type="module">
-        import QrScanner from 'https://unpkg.com/qr-scanner/qr-scanner.min.js';
-        
-       
-        // Ensure QrScanner is initialized on page load
-        window.onload = () => {
-            const video = document.getElementById('video');
-            const resultDiv = document.getElementById('result');
-            const payButton = document.getElementById('payButton');
+    <script>
+        const senderWallet = "https://ilp.interledger-test.dev/mthoko";
+        const keyId = "e165e80d-391c-42f0-91c4-61cfa1164257";
+        const privateKey = `
+-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIOQl2slAfZ789fuuO3IQpl94VHnMNd1GMLipmZrQ2x15
+-----END PRIVATE KEY-----
+`;
 
-            const qrScanner = new QrScanner(video, result => {
-                resultDiv.innerText = `QR Code Result: ${result}`;
-                const amount = (document.getElementById('amount').value).toString();
-                sendQrResult(localStorage.getItem('senderWallet'), result, localStorage.getItem('keyId'), amount, localStorage.getItem('privateKey') );
-                qrScanner.stop(); // Stop scanning after successful read
-            });
-
-            // Start scanning
-            QrScanner.hasCamera().then(hasCamera => {
-                if (hasCamera) {
-                    qrScanner.start();
-                } else {
-                    resultDiv.innerText = 'No camera found';
-                }
-            });
-
-            payButton.addEventListener('click', () => {
-                resultDiv.innerText = 'Scanning for QR code...';
-                qrScanner.start();
-            });
-        };
-
-        function sendQrResult(senderWallet, receiverWallet, keyId, amount, privateKey) {
-            fetch('http://192.168.152.145:3000/scan-to-pay', { // Replace with your server's URL
+        function sendQrResult(senderWallet, keyId, privateKey) {
+            fetch('http://192.168.152.145:3000/get_wallet_info_logged', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json', // Specify the content type
+                    'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     senderWallet,
-                    receiverWallet,
                     keyId,
-                    amount,
                     privateKey
                 })
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok ' + response.statusText);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.message) {
-                    window.location.href = data.message;
-                } else {
-                    console.log('Message not found in response:', data);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error); // Handle any errors
-            });
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data) {
+                        console.log(data);
+                        document.getElementById("walletName").innerHTML = `
+                            <strong>Wallet Name:</strong> ${data.sendingWalletAddress.publicName}<br>
+                            <strong>Wallet Currency:</strong> ${data.sendingWalletAddress.assetCode}
+                        `;
+                    } else {
+                        console.log('Data not found in response:', data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById("walletName").innerHTML = "Error loading wallet information";
+                });
         }
+
+        sendQrResult(senderWallet, keyId, privateKey);
     </script>
 </body>
-
 </html>
